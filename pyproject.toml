@@ -1,0 +1,29 @@
+[project]
+name = "sbesfpgd"
+version = "0.1.0"
+description = "Analyzing the spectral stability of Natural Gradient Descent at the Edge of Stability (EoS)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "torch>=2.0.0",
+    "matplotlib>=3.7.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "tqdm>=4.65.0",
+    "torchvision>=0.24.1",
+    "pymupdf>=1.26.7",
+    "asdl>=0.1.5",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# E7xx: statement style (semicolons, compound lines — intentional in research scripts)
+# E741: short math variable names (l=loss, d=depth, etc. — standard in DLN literature)
+ignore = ["E701", "E702", "E741"]
+# Only enforce meaningful rules
+select = ["F", "E4", "E5", "E9", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E501"]  # Allow long lines in plotting/label code

@@ -1,0 +1,135 @@
+{
+  "n_params_dln": 820,
+  "n_params_mnist": 50890,
+  "n_params_small": 110,
+  "n_params_cifar": 11173962,
+  "n_seeds_dln": 10,
+  "n_seeds_mnist": 5,
+  "theorem_final": {
+    "_description": "Section VII.D — Final measured iteration of 110-param DLN verification (eps = ||H-F||_2)",
+    "epsilon": 1.82,
+    "mu_min": 0.001,
+    "seff": 988.4,
+    "bound": 1821.8
+  },
+  "model_misspecification": {
+    "_description": "Section VII.D — G!=F analysis on 110-param DLN (depth 2, width 10, gamma=1e-3)",
+    "delta_range": "1.16–1.82",
+    "iter_0": {
+      "delta": 1.16,
+      "epsilon_true": 0.90,
+      "corollary_iv4_bound": 2069,
+      "theorem_iv2_bound": 905,
+      "seff": 902
+    },
+    "iter_50": {
+      "delta": 1.79,
+      "epsilon_true": 0.09,
+      "corollary_iv4_bound": 1881,
+      "theorem_iv2_bound": 96,
+      "seff": 258
+    },
+    "iter_100": {
+      "delta": 1.82,
+      "epsilon_true": 0.02,
+      "corollary_iv4_bound": 1847,
+      "theorem_iv2_bound": 25,
+      "seff": 1080
+    }
+  },
+  "corr_eig_sv": 0.86,
+  "dln_regression": {
+    "_description": "Table II — DLN Regression Results (MSE, n=10 seeds, Wilcoxon signed-rank, Bonferroni alpha=0.0125)",
+    "sgd": {"median_mse": "<1e-4", "iqr": ["<1e-4", "<1e-4"], "cohens_d": -1.14, "p_wilcoxon": 0.002, "significant": true},
+    "adam": {"median_mse": "<1e-4", "iqr": ["<1e-4", "<1e-4"], "cohens_d": -1.14, "p_wilcoxon": 0.002, "significant": true},
+    "kfac": {"median_mse": 0.025, "iqr": [0.002, 0.027], "cohens_d": -1.11, "p_wilcoxon": 0.037, "significant": false},
+    "sgd_cosine": {"median_mse": 0.001, "iqr": ["<1e-4", 0.001], "cohens_d": -1.14, "p_wilcoxon": 0.002, "significant": true},
+    "sp_gd": {"median_mse": 0.208, "iqr": [0.013, 1.203], "mean_mse": 0.646, "std_mse": 0.761}
+  },
+  "mnist_accuracy": {
+    "_description": "Section VII.J — MNIST Nonlinear Validation (50,890-param tanh MLP, 5 seeds, CPU)",
+    "sgd_lr_0.005": {"mean_pct": 65.4, "std_pct": 1.3},
+    "sgd_lr_0.01": {"mean_pct": 72.2, "std_pct": 0.5},
+    "sgd_lr_0.05": {"mean_pct": 85.8, "std_pct": 0.3},
+    "sp_gd_lr_0.01": {"mean_pct": 88.9, "std_pct": 0.2}
+  },
+  "fisher_approximation": {
+    "_description": "Section VII.K — Fisher Approximation Quality on 820-param DLN (5 seeds, 150 iters)",
+    "scalar_median_mse": 0.208,
+    "true_diagonal_mse": 0.0016997528757201508,
+    "kfac_asdl_mse": 56174235648.0,
+    "kfac_asdl_note": "Divergent MSE > 1e10 under default hyperparameters (gamma=1e-3, lr=0.1, curv_period=50)"
+  },
+  "damping_ablation": {
+    "_description": "Section VII.G — SP-GD damping ablation (5 seeds, 150 iterations, 4 gamma values)",
+    "gamma_1e-4": {"mean_mse": 0.488, "std_mse": 0.590},
+    "gamma_1e-3": {"mean_mse": 0.540, "std_mse": 0.862},
+    "gamma_1e-2": {"mean_mse": 0.012, "std_mse": 0.013},
+    "gamma_1e-1": {"mean_mse": "<1e-4"}
+  },
+  "cifar10": {
+    "_description": "Table VII — See gpu_experiment_results_stable.json for full per-epoch data",
+    "kfac_best": {
+      "lr": 0.1,
+      "damping": 0.001,
+      "curv_interval": 10,
+      "final_acc": 0.905,
+      "best_acc": 0.907,
+      "best_epoch": 23,
+      "mean_sharpness": 6424,
+      "peak_sharpness": 60219,
+      "peak_sharpness_epoch": 24,
+      "wall_time_s": 2097
+    },
+    "sgd": {
+      "final_acc": 0.862,
+      "best_acc": 0.865,
+      "best_epoch": 24,
+      "mean_sharpness": 156,
+      "peak_sharpness": 282,
+      "peak_sharpness_epoch": 20,
+      "sharpness_range": [97, 282],
+      "wall_time_s": 1190
+    },
+    "sharpness_ratio": 41
+  },
+  "cifar10_kfac_sweep": {
+    "_description": "Table VI — K-FAC Hyperparameter Screening (5-epoch test accuracy %)",
+    "damping_0.001": {"lr_0.01": 61.9, "lr_0.05": 80.5, "lr_0.1": 85.7},
+    "damping_0.01": {"lr_0.01": 65.6, "lr_0.05": 82.8, "lr_0.1": 84.3},
+    "damping_0.05": {"lr_0.01": 67.2, "lr_0.05": 82.9, "lr_0.1": 81.9},
+    "best_config": "damping=0.001, lr=0.1 (85.7%)"
+  },
+  "mnist_compute_controlled": {
+    "_description": "Section VII.J — Time-matched comparison on GPU",
+    "sgd_iters": 200,
+    "sgd_acc": 69.9,
+    "sp_gd_iters": 195,
+    "sp_gd_acc": 87.1,
+    "overhead_ratio": 1.02
+  },
+  "scaling": {
+    "_description": "Table IV — Scaling Analysis, Theorem IV.2 Bound (5 seeds per width, mean ± std). See cpu_experiment_results.json for per-seed data.",
+    "by_width": [
+      {"width": 5, "n_params": 55, "ratio_mean": 2045, "ratio_std": 304, "seff_mean": 310, "seff_std": 150, "bound_satisfied": true},
+      {"width": 10, "n_params": 210, "ratio_mean": 1993, "ratio_std": 750, "seff_mean": 587, "seff_std": 507, "bound_satisfied": true},
+      {"width": 15, "n_params": 465, "ratio_mean": 1778, "ratio_std": 219, "seff_mean": 273, "seff_std": 64, "bound_satisfied": true},
+      {"width": 20, "n_params": 820, "ratio_mean": 2270, "ratio_std": 543, "seff_mean": 322, "seff_std": 194, "bound_satisfied": true},
+      {"width": 30, "n_params": 1830, "ratio_mean": 2276, "ratio_std": 121, "seff_mean": 357, "seff_std": 117, "bound_satisfied": true},
+      {"width": 40, "n_params": 3240, "ratio_mean": 2483, "ratio_std": 215, "seff_mean": 464, "seff_std": 166, "bound_satisfied": true}
+    ],
+    "regression": {
+      "slope": 113,
+      "R_squared": 0.45,
+      "p_value": 0.15
+    },
+    "total_experiments": 30,
+    "looseness_range": "1.3–7.1x"
+  },
+  "alignment": {
+    "_description": "Table V — Alignment-Aware Spectral Analysis (5 seeds, mean ± std). See cpu_experiment_results.json for per-seed data.",
+    "110_param": {"seff": 2201, "seff_std": 656, "bound_iv2": 2756, "bound_iv2_std": 564, "rayleigh_lower": 1841, "rayleigh_std": 466, "looseness": 1.3},
+    "820_param": {"seff": 322, "seff_std": 194, "bound_iv2": 2271, "bound_iv2_std": 543, "rayleigh_lower": 225, "rayleigh_std": 173, "looseness": 7.1},
+    "1830_param": {"seff": 357, "seff_std": 117, "bound_iv2": 2277, "bound_iv2_std": 121, "rayleigh_lower": 213, "rayleigh_std": 64, "looseness": 6.4}
+  }
+}
