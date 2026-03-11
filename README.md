@@ -1,4 +1,4 @@
-# Spectral Stability of Natural Gradient Descent at the Edge of Stability
+# Spectral Bound on Effective Sharpness for Fisher-Preconditioned Gradient Descent
 
 ## Installation
 
