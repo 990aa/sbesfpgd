@@ -42,9 +42,7 @@ def _savefig(name: str) -> None:
     plt.close()
 
 
-
 # Models
-
 
 
 class DeepLinearNet(nn.Module):
@@ -85,9 +83,7 @@ def get_cifar_resnet18():
     return model
 
 
-
 # Hessian / Fisher utilities
-
 
 
 def power_iteration_sharpness(loss, params, precond=None, max_iter=20):
@@ -125,18 +121,20 @@ def full_hessian(loss, params):
         H[i] = torch.cat([r.detach().view(-1) for r in row])
     return H.numpy()
 
+
 def full_gauss_newton(model, X, params):
     """Compute exact full Gauss-Newton matrix for MSE loss."""
     d = sum(p.numel() for p in params)
     G = np.zeros((d, d))
     N_local = X.shape[0]
     for i in range(N_local):
-        pred = model(X[i:i+1])
+        pred = model(X[i : i + 1])
         gi = torch.autograd.grad(pred, params, retain_graph=True)
         gvec = torch.cat([g.view(-1) for g in gi]).detach().numpy()
         G += np.outer(gvec, gvec)
     G *= 2.0 / N_local
     return G
+
 
 def full_fisher(model, X, Y, params, damping=0.0):
     """Compute full Fisher matrix F = (1/N) sum g_i g_i^T for MSE loss."""
@@ -158,9 +156,7 @@ def full_fisher(model, X, Y, params, damping=0.0):
     return F
 
 
-
 # Training loops
-
 
 
 def run_dln_training(method, lr, steps=150, N=500, dim=20, seed=42, damping=1e-3):
@@ -322,12 +318,12 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
             eps_true = np.linalg.norm(Q, ord=2)  # spectral norm
             # delta = ||G - F||_2
             delta = np.linalg.norm(G_np - F_np, ord=2)
-            
+
             mu_min = np.min(np.linalg.eigvalsh(F_reg))
             # Actual effective sharpness
             F_inv_H = np.linalg.solve(F_reg, H_np)
             seff = np.max(np.abs(np.linalg.eigvals(F_inv_H))).real
-            
+
             # Theorem IV.2 bound: 1 + eps_true / mu_min
             bound_iv2 = 1.0 + eps_true / max(mu_min, 1e-12)
 
@@ -359,9 +355,7 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
     }
 
 
-
 # MNIST loader
-
 
 
 def _read_idx(path):
@@ -432,9 +426,7 @@ def run_mnist(method, lr, steps=200, n_train=2000, seed=42, damping=1e-3, sharp_
     return np.array(losses), np.array(sharps), np.array(accs), npar
 
 
-
 # Statistics
-
 
 
 def cohens_d(a, b):
@@ -443,9 +435,7 @@ def cohens_d(a, b):
     return (np.mean(a) - np.mean(b)) / sp if sp > 0 else 0.0
 
 
-
 # Scalable NGD training loops (ASDL-based K-FAC / Diagonal Fisher)
-
 
 
 def run_kfac_dln(lr, steps=150, N=500, dim=20, seed=42, damping=1e-3, curv_interval=1):
@@ -706,9 +696,7 @@ def measure_bound_at_scale(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     }
 
 
-
 # MAIN
-
 
 
 def main():

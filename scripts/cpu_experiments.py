@@ -54,18 +54,20 @@ def full_hessian(loss, params):
         H[i] = torch.cat([r.detach().view(-1) for r in row])
     return H.numpy()
 
+
 def full_gauss_newton(model, X, params):
     """Compute exact full Gauss-Newton matrix for MSE loss."""
     d = sum(p.numel() for p in params)
     G = np.zeros((d, d))
     N_local = X.shape[0]
     for i in range(N_local):
-        pred = model(X[i:i+1])
+        pred = model(X[i : i + 1])
         gi = torch.autograd.grad(pred, params, retain_graph=True)
         gvec = torch.cat([g.view(-1) for g in gi]).detach().numpy()
         G += np.outer(gvec, gvec)
     G *= 2.0 / N_local
     return G
+
 
 def full_fisher(model, X, Y, params, damping=0.0):
     N = X.shape[0]
@@ -114,7 +116,7 @@ def measure_all_quantities(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     Q = H_np - G_np
     eps = np.linalg.norm(Q, ord=2)
     delta = np.linalg.norm(G_np - F_np, ord=2)
-    
+
     mu_min = np.min(np.linalg.eigvalsh(F_reg))
     mu_max = np.max(np.linalg.eigvalsh(F_reg))
 
@@ -142,13 +144,13 @@ def measure_all_quantities(width, depth=3, N=200, seed=42, damping=1e-3, train_s
         "_H": H_np,
         "_F": F_np,
         "_F_reg": F_reg,
-        "_Q": tuple([Q, H_np - F_np]), # passing both for backward compatibility with alignment computation which might still use H - F for its theorem verification or we can update it too. We will see.
+        "_Q": tuple(
+            [Q, H_np - F_np]
+        ),  # passing both for backward compatibility with alignment computation which might still use H - F for its theorem verification or we can update it too. We will see.
     }
 
 
-
 # EXPERIMENT A: Scaling with 5 seeds + regression (Issue 4)
-
 
 
 def run_scaling_experiment():
@@ -219,7 +221,9 @@ def run_scaling_experiment():
     print(f"    Interpretation: {'No significant trend' if p_value > 0.05 else 'Significant trend'}")
 
     # Print summary table
-    print(f"\n  {'Width':>6} {'Params':>7} {'Thm IV.2':>16} {'Cor IV.4':>16} {'S_eff':>16} {'IV.2 OK':>9} {'IV.4 OK':>9}")
+    print(
+        f"\n  {'Width':>6} {'Params':>7} {'Thm IV.2':>16} {'Cor IV.4':>16} {'S_eff':>16} {'IV.2 OK':>9} {'IV.4 OK':>9}"
+    )
     print(f"  {'-' * 80}")
     for w in widths:
         r = results_by_width[str(w)]
@@ -235,9 +239,7 @@ def run_scaling_experiment():
     return {"by_width": results_by_width, "regression": regression}
 
 
-
 # EXPERIMENT B: Alignment-Aware Bound Validation (Issue 6)
-
 
 
 def compute_alignment_bound(H_np, F_np, F_reg, Q, damping=1e-3):
@@ -338,9 +340,7 @@ def run_alignment_experiment():
     return alignment_results
 
 
-
 # EXPERIMENT C: Damping Rule-of-Thumb Validation (Issue 7)
-
 
 
 def run_damping_experiment():
@@ -423,9 +423,7 @@ def run_damping_experiment():
     }
 
 
-
 # MAIN
-
 
 
 def main():
