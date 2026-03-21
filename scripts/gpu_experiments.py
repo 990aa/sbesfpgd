@@ -76,9 +76,9 @@ def save_results():
     print(f"  [Results saved to {RESULTS_FILE}]")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Utilities
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def hessian_top_eigenvalue(model, loss_fn, inputs, targets, num_iter=10):
@@ -148,9 +148,9 @@ class TanhMLP(nn.Module):
         return self.fc2(torch.tanh(self.fc1(x)))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Data Loading (Optimized)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def get_cifar10_loaders(batch_size=256, data_dir="./data"):
@@ -199,9 +199,9 @@ def get_mnist_tensors(n_train=2000, seed=42):
     return trX[idx], trY[idx], teX, teY
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # EXPERIMENT 1 & 2: CIFAR-10
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def train_cifar_kfac(lr, damping, curv_interval, batch_size, epochs, seed=42, measure_sharpness=False):
@@ -362,9 +362,9 @@ def train_cifar_sgd(lr, epochs, batch_size=256, seed=42, measure_sharpness=False
 
 
 def run_experiment_1_2():
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("EXPERIMENT 1: Optimized CIFAR-10 K-FAC Sweep")
-    print("=" * 60)
+    print("-" * 60)
 
     # Pruned grid based on your previous logs (lr=0.001 was bad)
     dampings = [1e-3, 1e-2, 5e-2]
@@ -400,9 +400,9 @@ def run_experiment_1_2():
         print(f"\nBest Config: damping={best['damping']}, lr={best['lr']} (Acc: {best['final_acc'] * 100:.1f}%)")
 
     # ── Phase 2: Full Training with Sharpness ──────────────────────────
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("EXPERIMENT 2: Extended Training & Sharpness")
-    print("=" * 60)
+    print("-" * 60)
 
     epochs_full = 25
 
@@ -418,9 +418,9 @@ def run_experiment_1_2():
     save_results()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # EXPERIMENT 3 & 4: MNIST (Fast)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def run_mnist_ngd(lr, X, y, teX, teY, steps=200, damping=1e-3, seed=42):
@@ -457,9 +457,9 @@ def run_mnist_ngd(lr, X, y, teX, teY, steps=200, damping=1e-3, seed=42):
 
 
 def run_experiment_3_4():
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("EXPERIMENT 3/4: MNIST Comparisons (Fast)")
-    print("=" * 60)
+    print("-" * 60)
 
     X, y, teX, teY = get_mnist_tensors(n_train=2000)
 
@@ -498,9 +498,9 @@ def run_experiment_3_4():
     save_results()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # MAIN
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 if __name__ == "__main__":
     t_start = time.time()

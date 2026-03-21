@@ -42,9 +42,9 @@ def _savefig(name: str) -> None:
     plt.close()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Models
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 class DeepLinearNet(nn.Module):
@@ -85,9 +85,9 @@ def get_cifar_resnet18():
     return model
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Hessian / Fisher utilities
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def power_iteration_sharpness(loss, params, precond=None, max_iter=20):
@@ -125,6 +125,18 @@ def full_hessian(loss, params):
         H[i] = torch.cat([r.detach().view(-1) for r in row])
     return H.numpy()
 
+def full_gauss_newton(model, X, params):
+    """Compute exact full Gauss-Newton matrix for MSE loss."""
+    d = sum(p.numel() for p in params)
+    G = np.zeros((d, d))
+    N_local = X.shape[0]
+    for i in range(N_local):
+        pred = model(X[i:i+1])
+        gi = torch.autograd.grad(pred, params, retain_graph=True)
+        gvec = torch.cat([g.view(-1) for g in gi]).detach().numpy()
+        G += np.outer(gvec, gvec)
+    G *= 2.0 / N_local
+    return G
 
 def full_fisher(model, X, Y, params, damping=0.0):
     """Compute full Fisher matrix F = (1/N) sum g_i g_i^T for MSE loss."""
@@ -146,9 +158,9 @@ def full_fisher(model, X, Y, params, damping=0.0):
     return F
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Training loops
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def run_dln_training(method, lr, steps=150, N=500, dim=20, seed=42, damping=1e-3):
@@ -289,6 +301,7 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
     opt = torch.optim.SGD(params, lr=lr)
 
     record_steps, eps_vals, mu_min_vals, seff_vals, bound_vals, loss_vals = [], [], [], [], [], []
+    delta_vals, bound_iv4_vals = [], []
 
     for step in range(steps):
         pred = model(X)
@@ -298,24 +311,36 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
         if step % every == 0:
             # Full Hessian
             H_np = full_hessian(loss, params)
+            # Full GGN
+            G_np = full_gauss_newton(model, X, params)
             # Full Fisher
             F_np = full_fisher(model, X, Y, params, damping=0.0)
             F_reg = F_np + damping * np.eye(npar)
 
-            # Q = H - F (GGN residual)
-            Q = H_np - F_np
-            eps = np.linalg.norm(Q, ord=2)  # spectral norm
+            # Q = H - G (GGN residual)
+            Q = H_np - G_np
+            eps_true = np.linalg.norm(Q, ord=2)  # spectral norm
+            # delta = ||G - F||_2
+            delta = np.linalg.norm(G_np - F_np, ord=2)
+            
             mu_min = np.min(np.linalg.eigvalsh(F_reg))
             # Actual effective sharpness
             F_inv_H = np.linalg.solve(F_reg, H_np)
             seff = np.max(np.abs(np.linalg.eigvals(F_inv_H))).real
-            bound = 1.0 + eps / max(mu_min, 1e-12)
+            
+            # Theorem IV.2 bound: 1 + eps_true / mu_min
+            bound_iv2 = 1.0 + eps_true / max(mu_min, 1e-12)
+
+            # Corollary IV.4 bound: 1 + (eps_true + delta) / mu_min
+            bound_iv4 = 1.0 + (eps_true + delta) / max(mu_min, 1e-12)
 
             record_steps.append(step)
-            eps_vals.append(eps)
+            eps_vals.append(eps_true)
             mu_min_vals.append(mu_min)
             seff_vals.append(seff)
-            bound_vals.append(bound)
+            bound_vals.append(bound_iv2)  # Return bounds as dicts or arrays
+            delta_vals.append(delta)
+            bound_iv4_vals.append(bound_iv4)
 
         opt.zero_grad()
         loss.backward()
@@ -324,17 +349,19 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
     return {
         "steps": record_steps,
         "eps": eps_vals,
+        "delta": delta_vals,
         "mu_min": mu_min_vals,
         "seff": seff_vals,
-        "bound": bound_vals,
+        "bound_iv2": bound_vals,
+        "bound_iv4": bound_iv4_vals,
         "losses": loss_vals,
         "n_params": npar,
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # MNIST loader
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def _read_idx(path):
@@ -405,9 +432,9 @@ def run_mnist(method, lr, steps=200, n_train=2000, seed=42, damping=1e-3, sharp_
     return np.array(losses), np.array(sharps), np.array(accs), npar
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Statistics
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def cohens_d(a, b):
@@ -416,9 +443,9 @@ def cohens_d(a, b):
     return (np.mean(a) - np.mean(b)) / sp if sp > 0 else 0.0
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # Scalable NGD training loops (ASDL-based K-FAC / Diagonal Fisher)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def run_kfac_dln(lr, steps=150, N=500, dim=20, seed=42, damping=1e-3, curv_interval=1):
@@ -679,9 +706,9 @@ def measure_bound_at_scale(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # MAIN
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def main():
@@ -690,7 +717,7 @@ def main():
     lr = 0.1
 
     methods = ["SGD", "NGD", "Adam", "KFAC", "SGD_Cosine"]
-    mlabels = {"SGD": "SGD", "NGD": "NGD (diag)", "Adam": "Adam", "KFAC": "K-FAC", "SGD_Cosine": "SGD+Cosine"}
+    mlabels = {"SGD": "SGD", "NGD": "SP-GD", "Adam": "Adam", "KFAC": "K-FAC (custom)", "SGD_Cosine": "SGD+Cosine"}
     mcolors = {
         "SGD": "tab:red",
         "NGD": "tab:blue",
@@ -702,9 +729,9 @@ def main():
     all_data = {m: {"losses": [], "sharp": [], "times": [], "total_t": []} for m in methods}
     npar_dln = None
 
-    print("=" * 60)
+    print("-" * 60)
     print("Phase 1: DLN main experiments")
-    print("=" * 60)
+    print("-" * 60)
     for m in methods:
         print(f"  {mlabels[m]:>12} ({n_seeds} seeds) ...", end=" ", flush=True)
         for s in range(n_seeds):
@@ -766,7 +793,7 @@ def main():
     ax1.legend()
     ax1.grid(True, which="both", alpha=0.2)
 
-    for m, sfx in [("SGD", r"$\lambda_{\max}(H)$"), ("NGD", r"$\lambda_{\max}(F^{-1}H)$")]:
+    for m, sfx in [("SGD", r"$\lambda_{\max}(H)$"), ("NGD", r"$\lambda_{\max}(\hat{F}^{-1}H)$")]:
         arr = np.array(all_data[m]["sharp"])
         mu, sd = arr.mean(0), arr.std(0)
         mu = np.abs(mu)  # plot magnitude to avoid spurious negatives
@@ -785,31 +812,34 @@ def main():
     # ======================================================================
     # FIG 3: Theorem verification — epsilon(t), mu_min(t), bound(t), S_eff(t)
     # ======================================================================
-    print("[Fig 3] Theorem IV.2 verification: epsilon, mu_min, bound")
+    print("[Fig 3] Theorem verification: epsilon, mu_min, bounds")
     tv = measure_theorem_quantities(lr=0.1, steps=100, N=200, dim=10, seed=42, damping=1e-3, every=5)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
-    ax1.plot(tv["steps"], tv["eps"], "o-", label=r"$\|Q\|_2 = \epsilon$", color="tab:red")
+    ax1.plot(tv["steps"], tv["eps"], "o-", label=r"$\epsilon_{\mathrm{true}} = \|H - G\|_2$", color="tab:red")
+    ax1.plot(tv["steps"], tv["delta"], "v-", label=r"$\delta = \|G - F\|_2$", color="tab:purple")
     ax1.plot(tv["steps"], tv["mu_min"], "s-", label=r"$\mu_{\min}(F+\gamma I)$", color="tab:green")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Value")
-    ax1.set_title("(a) Residual Norm and Fisher Conditioning")
-    ax1.legend()
+    ax1.set_title("(a) Residual Norm, Misspecification, conditioning")
+    ax1.legend(fontsize=8)
     ax1.grid(True, alpha=0.2)
     ax1.set_yscale("log")
 
     ax2.plot(tv["steps"], tv["seff"], "o-", label=r"$S_{\mathrm{eff}} = \lambda_{\max}(F^{-1}H)$", color="tab:blue")
-    ax2.plot(tv["steps"], tv["bound"], "s--", label=r"Bound: $1 + \epsilon/\mu_{\min}$", color="tab:orange")
+    ax2.plot(tv["steps"], tv["bound_iv2"], "s--", label=r"Thm IV.2 Bound", color="tab:red", alpha=0.7)
+    ax2.plot(tv["steps"], tv["bound_iv4"], "d--", label=r"Cor IV.4 Bound", color="tab:orange")
     ax2.set_xlabel("Iteration")
     ax2.set_ylabel("Effective Sharpness")
-    ax2.set_title("(b) Theorem IV.2 Bound Verification")
-    ax2.legend()
+    ax2.set_title("(b) Bound Verification")
+    ax2.legend(fontsize=8)
     ax2.grid(True, alpha=0.2)
+    ax2.set_yscale("log")
     plt.tight_layout()
     _savefig("theorem_verification")
     # Print values at last recorded step
     print(
-        f"  Final ε = {tv['eps'][-1]:.4f}, μ_min = {tv['mu_min'][-1]:.6f}, "
-        f"S_eff = {tv['seff'][-1]:.4f}, bound = {tv['bound'][-1]:.4f}"
+        f"  Final ε_true = {tv['eps'][-1]:.4f}, δ = {tv['delta'][-1]:.4f}, μ_min = {tv['mu_min'][-1]:.6f}, "
+        f"S_eff = {tv['seff'][-1]:.4f}, Thm IV.2 = {tv['bound_iv2'][-1]:.4f}, Cor IV.4 = {tv['bound_iv4'][-1]:.4f}"
     )
 
     # ======================================================================
@@ -860,7 +890,7 @@ def main():
     for data, lbl, clr in [
         (sgd_l_small, "SGD", "tab:red"),
         (ff_l_all, "NGD (full Fisher)", "tab:blue"),
-        (diag_l_all, "NGD (diagonal)", "tab:cyan"),
+        (diag_l_all, "SP-GD", "tab:cyan"),
     ]:
         arr = np.array(data)
         mu, sd = arr.mean(0), arr.std(0)
@@ -876,7 +906,7 @@ def main():
     for data, lbl, clr in [
         (sgd_s_small, r"SGD $\lambda_{\max}(H)$", "tab:red"),
         (ff_s_all, r"Full-Fisher $\lambda_{\max}(F^{-1}H)$", "tab:blue"),
-        (diag_s_all, r"Diag-Fisher (approx)", "tab:cyan"),
+        (diag_s_all, r"SP-GD $\lambda_{\max}(\hat{F}^{-1}H)$", "tab:cyan"),
     ]:
         arr = np.abs(np.array(data))
         mu = arr.mean(0)
@@ -926,7 +956,7 @@ def main():
     spec_ngd, _ = _train_spec("NGD", 0.1)
     plt.figure(figsize=(3.5, 3.0))
     plt.hist(spec_sgd, bins=50, alpha=0.5, label="SGD", color="tab:red", density=True)
-    plt.hist(spec_ngd, bins=50, alpha=0.5, label="NGD (diag)", color="tab:blue", density=True)
+    plt.hist(spec_ngd, bins=50, alpha=0.5, label="SP-GD", color="tab:blue", density=True)
     plt.xlabel(r"Eigenvalue $\lambda$")
     plt.ylabel("Density")
     plt.title("Hessian Eigenvalue Spectrum After 50 Training Iterations")
@@ -980,7 +1010,7 @@ def main():
         "SGD_lr0.005": r"SGD $\eta$=0.005",
         "SGD_lr0.01": r"SGD $\eta$=0.01",
         "SGD_lr0.05": r"SGD $\eta$=0.05",
-        "NGD": r"NGD $\eta$=0.01",
+        "NGD": r"SP-GD $\eta$=0.01",
     }
     for key in list(mnist_data.keys()):
         arr = np.array(mnist_data[key]["losses"])
@@ -1072,9 +1102,9 @@ def main():
     # ======================================================================
     # STATISTICAL REPORT
     # ======================================================================
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("STATISTICAL REPORT")
-    print("=" * 60)
+    print("-" * 60)
 
     # Use Wilcoxon signed-rank (paired by seed)
     ngd_finals = np.array([l[-1] for l in all_data["NGD"]["losses"]])
@@ -1138,9 +1168,9 @@ def main():
     # ======================================================================
     # PHASE 2: SCALABLE NGD EXPERIMENTS
     # ======================================================================
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("Phase 2: Scalable NGD experiments")
-    print("=" * 60)
+    print("-" * 60)
 
     # ------------------------------------------------------------------
     # FIG 9: K-FAC and True Diagonal on DLN (820 params)
@@ -1165,9 +1195,9 @@ def main():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     for data, lbl, clr in [
         (all_data["SGD"]["losses"], "SGD", "tab:red"),
-        (all_data["NGD"]["losses"], "NGD (scalar)", "tab:cyan"),
-        (diag_true_l_all, "NGD (true diag)", "tab:purple"),
-        (kfac_l_all, "K-FAC", "tab:blue"),
+        (all_data["NGD"]["losses"], "SP-GD", "tab:cyan"),
+        (diag_true_l_all, "NGD (diag)", "tab:purple"),
+        (kfac_l_all, "K-FAC (ASDL)", "tab:blue"),
     ]:
         arr = np.array(data)
         mu, sd = arr.mean(0), arr.std(0)
@@ -1182,8 +1212,8 @@ def main():
 
     for data, lbl, clr in [
         (all_data["SGD"]["sharp"], r"SGD $\lambda_{\max}(H)$", "tab:red"),
-        (kfac_s_all, r"K-FAC $\lambda_{\max}(H)$", "tab:blue"),
-        (diag_true_s_all, r"True Diag $\lambda_{\max}(H)$", "tab:purple"),
+        (kfac_s_all, r"K-FAC (ASDL) $\lambda_{\max}(H)$", "tab:blue"),
+        (diag_true_s_all, r"NGD (diag) $\lambda_{\max}(H)$", "tab:purple"),
     ]:
         arr = np.abs(np.array(data))
         mu = arr.mean(0)
@@ -1224,7 +1254,7 @@ def main():
 
     fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.5))
     window = 50
-    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC", "tab:blue")]:
+    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC (ASDL)", "tab:blue")]:
         raw = np.array(data["losses"])
         if len(raw) > window:
             smoothed = np.convolve(raw, np.ones(window) / window, mode="valid")
@@ -1237,7 +1267,7 @@ def main():
     axes[0].legend()
     axes[0].grid(True, alpha=0.2)
 
-    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC", "tab:blue")]:
+    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC (ASDL)", "tab:blue")]:
         sh = np.array(data["sharps"])
         nonzero = sh > 0
         if nonzero.any():
@@ -1250,7 +1280,7 @@ def main():
     axes[1].grid(True, alpha=0.2)
 
     epochs_x = np.arange(1, len(cifar_sgd["epoch_accs"]) + 1)
-    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC", "tab:blue")]:
+    for data, lbl, clr in [(cifar_sgd, "SGD", "tab:red"), (cifar_kfac, "K-FAC (ASDL)", "tab:blue")]:
         axes[2].plot(epochs_x, [a * 100 for a in data["epoch_accs"]], "o-", label=lbl, color=clr, markersize=6)
     axes[2].set_xlabel("Epoch")
     axes[2].set_ylabel("Test Accuracy (%)")
@@ -1371,7 +1401,7 @@ def main():
     with open(os.path.join(FIGDIR, "..", "experiment_results.json"), "w") as f:
         json.dump(results, f, indent=2)
     print("\nResults saved to experiment_results.json")
-    print("=" * 60)
+    print("-" * 60)
 
 
 if __name__ == "__main__":

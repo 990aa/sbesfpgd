@@ -29,11 +29,7 @@ def _savefig(name: str) -> None:
     _plt.close()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 # Model + utilities (self-contained)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
 class DeepLinearNet(nn.Module):
     def __init__(self, depth=3, width=20, input_dim=20, output_dim=1):
         super().__init__()
@@ -58,6 +54,18 @@ def full_hessian(loss, params):
         H[i] = torch.cat([r.detach().view(-1) for r in row])
     return H.numpy()
 
+def full_gauss_newton(model, X, params):
+    """Compute exact full Gauss-Newton matrix for MSE loss."""
+    d = sum(p.numel() for p in params)
+    G = np.zeros((d, d))
+    N_local = X.shape[0]
+    for i in range(N_local):
+        pred = model(X[i:i+1])
+        gi = torch.autograd.grad(pred, params, retain_graph=True)
+        gvec = torch.cat([g.view(-1) for g in gi]).detach().numpy()
+        G += np.outer(gvec, gvec)
+    G *= 2.0 / N_local
+    return G
 
 def full_fisher(model, X, Y, params, damping=0.0):
     N = X.shape[0]
@@ -99,47 +107,54 @@ def measure_all_quantities(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     pred = model(X)
     loss = nn.MSELoss()(pred, Y)
     H_np = full_hessian(loss, params)
+    G_np = full_gauss_newton(model, X, params)
     F_np = full_fisher(model, X, Y, params, damping=0.0)
     F_reg = F_np + damping * np.eye(npar)
 
-    Q = H_np - F_np
+    Q = H_np - G_np
     eps = np.linalg.norm(Q, ord=2)
+    delta = np.linalg.norm(G_np - F_np, ord=2)
+    
     mu_min = np.min(np.linalg.eigvalsh(F_reg))
     mu_max = np.max(np.linalg.eigvalsh(F_reg))
 
     F_inv_H = np.linalg.solve(F_reg, H_np)
     seff = np.max(np.abs(np.linalg.eigvals(F_inv_H))).real
     bound_iv2 = 1.0 + eps / max(mu_min, 1e-12)
+    bound_iv4 = 1.0 + (eps + delta) / max(mu_min, 1e-12)
 
     return {
         "n_params": npar,
         "width": width,
         "seed": seed,
         "eps": float(eps),
+        "delta": float(delta),
         "mu_min": float(mu_min),
         "mu_max": float(mu_max),
         "seff": float(seff),
         "bound_iv2": float(bound_iv2),
-        "ratio": float(eps / max(mu_min, 1e-12)),
+        "bound_iv4": float(bound_iv4),
+        "ratio_iv2": float(eps / max(mu_min, 1e-12)),
+        "ratio_iv4": float((eps + delta) / max(mu_min, 1e-12)),
         "loss": float(loss.item()),
         "kappa_F": float(mu_max / max(mu_min, 1e-12)),
         # Return raw matrices for alignment computation
         "_H": H_np,
         "_F": F_np,
         "_F_reg": F_reg,
-        "_Q": Q,
+        "_Q": tuple([Q, H_np - F_np]), # passing both for backward compatibility with alignment computation which might still use H - F for its theorem verification or we can update it too. We will see.
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # EXPERIMENT A: Scaling with 5 seeds + regression (Issue 4)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def run_scaling_experiment():
-    print("=" * 60)
+    print("-" * 60)
     print("EXPERIMENT A: Scaling Analysis (5 seeds per width)")
-    print("=" * 60)
+    print("-" * 60)
 
     widths = [5, 10, 15, 20, 30, 40]
     n_seeds = 5
@@ -154,36 +169,43 @@ def run_scaling_experiment():
                 {
                     "seed": s,
                     "n_params": r["n_params"],
-                    "ratio": r["ratio"],
+                    "ratio_iv2": r["ratio_iv2"],
+                    "ratio_iv4": r["ratio_iv4"],
                     "seff": r["seff"],
                     "bound_iv2": r["bound_iv2"],
+                    "bound_iv4": r["bound_iv4"],
                     "eps": r["eps"],
+                    "delta": r["delta"],
                     "mu_min": r["mu_min"],
                     "kappa_F": r["kappa_F"],
                 }
             )
             print(f"s{s}", end=" ", flush=True)
 
-        ratios = [sr["ratio"] for sr in seed_results]
+        ratios_iv2 = [sr["ratio_iv2"] for sr in seed_results]
+        ratios_iv4 = [sr["ratio_iv4"] for sr in seed_results]
         seffs = [sr["seff"] for sr in seed_results]
         results_by_width[str(w)] = {
             "n_params": seed_results[0]["n_params"],
-            "ratio_mean": float(np.mean(ratios)),
-            "ratio_std": float(np.std(ratios)),
+            "ratio_iv2_mean": float(np.mean(ratios_iv2)),
+            "ratio_iv2_std": float(np.std(ratios_iv2)),
+            "ratio_iv4_mean": float(np.mean(ratios_iv4)),
+            "ratio_iv4_std": float(np.std(ratios_iv4)),
             "seff_mean": float(np.mean(seffs)),
             "seff_std": float(np.std(seffs)),
-            "bound_satisfied_all": all(sr["seff"] <= sr["bound_iv2"] + 0.01 for sr in seed_results),
+            "bound_iv2_satisfied_all": all(sr["seff"] <= sr["bound_iv2"] + 0.01 for sr in seed_results),
+            "bound_iv4_satisfied_all": all(sr["seff"] <= sr["bound_iv4"] + 0.01 for sr in seed_results),
             "per_seed": seed_results,
         }
         print(
-            f"→ ε/μ_min = {np.mean(ratios):.0f} ± {np.std(ratios):.0f}, "
+            f"→ Cor IV.4 = {np.mean(ratios_iv4):.0f} ± {np.std(ratios_iv4):.0f}, "
             f"S_eff = {np.mean(seffs):.0f} ± {np.std(seffs):.0f}"
         )
 
-    # Regression: ε/μ_min vs log(params)
+    # Regression: ε_true+delta/μ_min vs log(params)
     log_params = [np.log(results_by_width[str(w)]["n_params"]) for w in widths]
-    mean_ratios = [results_by_width[str(w)]["ratio_mean"] for w in widths]
-    slope, intercept, r_value, p_value, std_err = scipy_stats.linregress(log_params, mean_ratios)
+    mean_ratios_iv4 = [results_by_width[str(w)]["ratio_iv4_mean"] for w in widths]
+    slope, intercept, r_value, p_value, std_err = scipy_stats.linregress(log_params, mean_ratios_iv4)
 
     regression = {
         "slope": float(slope),
@@ -192,28 +214,30 @@ def run_scaling_experiment():
         "p_value": float(p_value),
         "std_err": float(std_err),
     }
-    print("\n  Regression (ε/μ_min vs log(params)):")
+    print("\n  Regression (Cor IV.4 vs log(params)):")
     print(f"    Slope = {slope:.1f}, R² = {r_value**2:.4f}, p = {p_value:.4f}")
     print(f"    Interpretation: {'No significant trend' if p_value > 0.05 else 'Significant trend'}")
 
     # Print summary table
-    print(f"\n  {'Width':>6} {'Params':>7} {'ε/μ_min':>16} {'S_eff':>16} {'Bound OK':>9}")
-    print(f"  {'-' * 60}")
+    print(f"\n  {'Width':>6} {'Params':>7} {'Thm IV.2':>16} {'Cor IV.4':>16} {'S_eff':>16} {'IV.2 OK':>9} {'IV.4 OK':>9}")
+    print(f"  {'-' * 80}")
     for w in widths:
         r = results_by_width[str(w)]
         print(
             f"  {w:>6} {r['n_params']:>7} "
-            f"{r['ratio_mean']:>7.0f} ± {r['ratio_std']:>5.0f} "
+            f"{r['ratio_iv2_mean']:>7.0f} ± {r['ratio_iv2_std']:>5.0f} "
+            f"{r['ratio_iv4_mean']:>7.0f} ± {r['ratio_iv4_std']:>5.0f} "
             f"{r['seff_mean']:>7.0f} ± {r['seff_std']:>5.0f} "
-            f"{'Yes' if r['bound_satisfied_all'] else 'NO':>9}"
+            f"{'Yes' if r['bound_iv2_satisfied_all'] else 'NO':>9} "
+            f"{'Yes' if r['bound_iv4_satisfied_all'] else 'NO':>9}"
         )
 
     return {"by_width": results_by_width, "regression": regression}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # EXPERIMENT B: Alignment-Aware Bound Validation (Issue 6)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def compute_alignment_bound(H_np, F_np, F_reg, Q, damping=1e-3):
@@ -271,9 +295,9 @@ def compute_alignment_bound(H_np, F_np, F_reg, Q, damping=1e-3):
 
 
 def run_alignment_experiment():
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("EXPERIMENT B: Alignment-Aware Bound Validation (Theorem IV.3)")
-    print("=" * 60)
+    print("-" * 60)
 
     # Test on multiple widths and seeds
     configs = [
@@ -288,7 +312,9 @@ def run_alignment_experiment():
         seed_results = []
         for s in range(5):
             raw = measure_all_quantities(cfg["width"], cfg["depth"], N=200, seed=s, damping=1e-3)
-            alg = compute_alignment_bound(raw["_H"], raw["_F"], raw["_F_reg"], raw["_Q"])
+            # Unpack the tuple backward compatibility from _Q
+            H_min_G, H_min_F = raw["_Q"]
+            alg = compute_alignment_bound(raw["_H"], raw["_F"], raw["_F_reg"], H_min_G)
             seed_results.append(alg)
 
         # Average
@@ -312,15 +338,15 @@ def run_alignment_experiment():
     return alignment_results
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # EXPERIMENT C: Damping Rule-of-Thumb Validation (Issue 7)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def run_damping_experiment():
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("EXPERIMENT C: Damping Rule-of-Thumb Validation")
-    print("=" * 60)
+    print("-" * 60)
 
     # First, compute μ_median(F) for the DLN task
     print("\n  Computing μ_median(F) for DLN (width 20)...")
@@ -397,9 +423,9 @@ def run_damping_experiment():
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
 # MAIN
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 
 def main():
@@ -436,30 +462,42 @@ def main():
     results["damping"] = run_damping_experiment()
 
     # ── Generate figures ──
-    print("\n" + "=" * 60)
+    print("\n" + "-" * 60)
     print("Generating figures...")
-    print("=" * 60)
+    print("-" * 60)
 
     # Fig: Scaling analysis (updated with error bars)
     scaling = results["scaling"]
     widths = [5, 10, 15, 20, 30, 40]
     nparams = [scaling["by_width"][str(w)]["n_params"] for w in widths]
-    ratio_means = [scaling["by_width"][str(w)]["ratio_mean"] for w in widths]
-    ratio_stds = [scaling["by_width"][str(w)]["ratio_std"] for w in widths]
+    ratio_iv2_means = [scaling["by_width"][str(w)]["ratio_iv2_mean"] for w in widths]
+    ratio_iv2_stds = [scaling["by_width"][str(w)]["ratio_iv2_std"] for w in widths]
+    ratio_iv4_means = [scaling["by_width"][str(w)]["ratio_iv4_mean"] for w in widths]
+    ratio_iv4_stds = [scaling["by_width"][str(w)]["ratio_iv4_std"] for w in widths]
     seff_means = [scaling["by_width"][str(w)]["seff_mean"] for w in widths]
     seff_stds = [scaling["by_width"][str(w)]["seff_std"] for w in widths]
-    bounds = [rm + 1 for rm in ratio_means]  # bound = 1 + ratio
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.5))
     ax1.errorbar(
         nparams,
-        ratio_means,
-        yerr=ratio_stds,
-        fmt="o-",
+        ratio_iv2_means,
+        yerr=ratio_iv2_stds,
+        fmt="s-",
         color="tab:red",
         capsize=5,
-        markersize=8,
-        label=r"$\epsilon / \mu_{\min}(F)$",
+        markersize=6,
+        alpha=0.6,
+        label=r"$\epsilon_{\mathrm{true}} / \mu_{\min}(F)$ (IV.2)",
+    )
+    ax1.errorbar(
+        nparams,
+        ratio_iv4_means,
+        yerr=ratio_iv4_stds,
+        fmt="o-",
+        color="tab:orange",
+        capsize=5,
+        markersize=6,
+        label=r"$(\epsilon_{\mathrm{true}}+\delta) / \mu_{\min}(F)$ (IV.4)",
     )
     # Regression line
     reg = scaling["regression"]
@@ -470,35 +508,46 @@ def main():
         "--",
         color="gray",
         alpha=0.5,
-        label=f"Regression (R\u00b2={reg['R_squared']:.3f})",
-    )
-    # Annotate non-significance on the regression line
-    mid_idx = len(log_x) // 2
-    ax1.annotate(
-        "n.s. ($p = 0.15$)",
-        xy=(np.exp(log_x[mid_idx]), reg["slope"] * log_x[mid_idx] + reg["intercept"]),
-        xytext=(10, 8),
-        textcoords="offset points",
-        fontsize=8,
-        fontstyle="italic",
-        color="gray",
+        label=f"Regr. IV.4 (R\u00b2={reg['R_squared']:.3f})",
     )
     ax1.set_xscale("log")
     ax1.set_xlabel("Number of Parameters")
-    ax1.set_ylabel(r"$\epsilon / \mu_{\min}(F)$")
+    ax1.set_ylabel("Bound Ratio")
     ax1.set_title("(a) Bound Ratio vs. Model Size (5 seeds)")
-    ax1.legend()
+    ax1.legend(fontsize=8)
     ax1.grid(True, which="both", alpha=0.2)
 
     ax2.errorbar(
         nparams,
         seff_means,
         yerr=seff_stds,
-        fmt="o-",
+        fmt="d-",
         color="tab:blue",
         capsize=5,
         markersize=8,
         label=r"$S_{\mathrm{eff}}$ (actual)",
+    )
+    ax2.errorbar(
+        nparams,
+        [r + 1 for r in ratio_iv4_means],
+        yerr=ratio_iv4_stds,
+        fmt="o-",
+        color="tab:orange",
+        capsize=5,
+        markersize=7,
+        alpha=0.7,
+        label=r"Cor. IV.4 Bound",
+    )
+    ax2.errorbar(
+        nparams,
+        [r + 1 for r in ratio_iv2_means],
+        yerr=ratio_iv2_stds,
+        fmt="s-",
+        color="tab:red",
+        capsize=5,
+        markersize=7,
+        alpha=0.7,
+        label=r"Thm. IV.2 Bound",
     )
     ax2.errorbar(
         nparams,
@@ -554,7 +603,7 @@ def main():
     stds = [d["std_loss"] for d in gammas_sorted]
 
     fig, ax = plt.subplots(figsize=(3.5, 3.0))
-    ax.errorbar(gs, means, yerr=stds, fmt="o-", color="tab:blue", capsize=3, markersize=6, label="NGD final MSE")
+    ax.errorbar(gs, means, yerr=stds, fmt="o-", color="tab:blue", capsize=3, markersize=6, label="SP-GD final MSE")
     ax.axvline(
         damp["recommended_gamma"],
         color="tab:red",
