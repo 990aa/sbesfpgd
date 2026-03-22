@@ -547,16 +547,6 @@ def main():
         alpha=0.7,
         label=r"Thm. IV.2 Bound",
     )
-    ax2.errorbar(
-        nparams,
-        bounds,
-        yerr=ratio_stds,
-        fmt="s--",
-        color="tab:orange",
-        capsize=5,
-        markersize=8,
-        label=r"Bound $1 + \epsilon/\mu_{\min}$",
-    )
     ax2.set_xscale("log")
     ax2.set_xlabel("Number of Parameters")
     ax2.set_ylabel("Effective Sharpness")
@@ -600,8 +590,17 @@ def main():
     means = [d["mean_loss"] for d in gammas_sorted]
     stds = [d["std_loss"] for d in gammas_sorted]
 
-    fig, ax = plt.subplots(figsize=(3.5, 3.0))
-    ax.errorbar(gs, means, yerr=stds, fmt="o-", color="tab:blue", capsize=3, markersize=6, label="SP-GD final MSE")
+    fig, ax = plt.subplots(figsize=(6.0, 3.0))
+    ax.errorbar(
+        gs,
+        means,
+        yerr=stds,
+        fmt="o-",
+        color="tab:blue",
+        capsize=3,
+        markersize=6,
+        label="SP-GD final MSE",
+    )
     ax.axvline(
         damp["recommended_gamma"],
         color="tab:red",
@@ -610,14 +609,18 @@ def main():
         label=f"Recommended $\\gamma = 0.1 \\cdot \\mu_{{median}}$\n= {damp['recommended_gamma']:.2e}",
     )
     ax.axvline(
-        damp["best_gamma"], color="tab:green", ls=":", alpha=0.7, label=f"Best $\\gamma$ = {damp['best_gamma']:.2e}"
+        damp["best_gamma"],
+        color="tab:green",
+        ls=":",
+        alpha=0.7,
+        label=f"Best $\\gamma$ = {damp['best_gamma']:.2e}",
     )
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel(r"Damping $\gamma$")
     ax.set_ylabel("Final MSE")
     ax.set_title("Damping Rule-of-Thumb Validation (DLN, 820 params)")
-    ax.legend(fontsize=10)
+    ax.legend(fontsize=9, loc="center left", bbox_to_anchor=(1, 0.5))
     ax.grid(True, which="both", alpha=0.2)
     plt.tight_layout()
     _savefig("damping_validation")

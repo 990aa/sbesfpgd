@@ -39,13 +39,13 @@ except ImportError:
     import torchvision.models as models
 
 try:
-    from asdl import KfacGradientMaker, PreconditioningConfig
+    from asdl import KfacGradientMaker, PreconditioningConfig  # type: ignore
 except ImportError:
     import subprocess
 
     print("Installing asdl (optimization library) from GitHub...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "git+https://github.com/kazukiosawa/asdl.git"])
-    from asdl import KfacGradientMaker, PreconditioningConfig
+    from asdl import KfacGradientMaker, PreconditioningConfig  # type: ignore
 
 # ── Device & Speed Optimizations ─────────────────────────────────────────────
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -104,7 +104,8 @@ def hessian_top_eigenvalue(model, loss_fn, inputs, targets, num_iter=10):
 
     # Initialize vector v (random)
     v = [torch.randn_like(p) for p in valid_params]
-    norm = torch.sqrt(sum((vi**2).sum() for vi in v))
+    norm = torch.sqrt(sum(  # type: ignore
+    (vi**2).sum() for vi in v))
     v = [vi / norm for vi in v]
 
     eigenvalue = 0.0
@@ -118,7 +119,8 @@ def hessian_top_eigenvalue(model, loss_fn, inputs, targets, num_iter=10):
         eigenvalue = sum((hvi * vi).sum() for hvi, vi in zip(Hv, v)).item()
 
         # Re-normalize
-        norm = torch.sqrt(sum((hvi**2).sum() for hvi in Hv))
+        norm = torch.sqrt(sum(  # type: ignore
+    (hvi**2).sum() for hvi in Hv))
         if norm.item() < 1e-12:
             break
         v = [hvi / norm for hvi in Hv]
@@ -235,7 +237,7 @@ def train_cifar_kfac(lr, damping, curv_interval, batch_size, epochs, seed=42, me
             inputs, targets = inputs.to(DEVICE, non_blocking=True), targets.to(DEVICE, non_blocking=True)
 
             try:
-                optimizer.zero_grad()
+                if optimizer: optimizer.zero_grad()
 
                 # ASDL Logic
                 dummy_y = grad_maker.setup_model_call(model, inputs)
@@ -244,7 +246,7 @@ def train_cifar_kfac(lr, damping, curv_interval, batch_size, epochs, seed=42, me
 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer.step()
+                if optimizer: optimizer.step()
 
                 running_loss += loss.item()
             except RuntimeError as e:
@@ -322,11 +324,11 @@ def train_cifar_sgd(lr, epochs, batch_size=256, seed=42, measure_sharpness=False
         model.train()
         for inputs, targets in train_loader:
             inputs, targets = inputs.to(DEVICE, non_blocking=True), targets.to(DEVICE, non_blocking=True)
-            optimizer.zero_grad()
+            if optimizer: optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             loss.backward()
-            optimizer.step()
+            if optimizer: optimizer.step()
 
         # Evaluate
         model.eval()
