@@ -735,41 +735,37 @@ def main():
         print("done")
     print(f"  DLN parameters: {npar_dln}")
 
-    # ======================================================================
-    # FIG 1: EoS demonstration — SGD at multiple learning rates
-    # ======================================================================
-    print("\n[Fig 1] EoS demonstration: SGD at multiple lr")
+        # FIG 1: EoS demonstration — SGD at multiple learning rates
+        print("\n[Fig 1] EoS demonstration: SGD at multiple lr")
     eos_lrs = [0.05, 0.1, 0.2, 0.5, 1.0]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     for elr in eos_lrs:
         l, sh, _, _, _ = run_dln_training("SGD", elr, steps=200, seed=42)
-        ax1.plot(l, label=f"$\\eta={elr}$")
-        ax2.plot(sh, label=f"$\\eta={elr}$")
+        ax1.plot(l, label=f"η={elr}")
+        ax2.plot(sh, label=f"η={elr}")
         ax2.axhline(2 / elr, ls=":", alpha=0.4, color="gray")
     ax1.set_yscale("log")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Loss (MSE)")
-    ax1.set_title("(a) SGD Loss at Various $\\eta$")
+    ax1.set_title("(a) SGD Loss at Various η")
     ax1.legend(fontsize=9)
     ax1.grid(True, alpha=0.2)
     ax2.set_xlabel("Iteration")
     ax2.set_ylabel("$\\lambda_{\\max}(H)$")
-    ax2.set_title("(b) SGD Sharpness at Various $\\eta$")
+    ax2.set_title("(b) SGD Sharpness at Various η")
     ax2.legend(fontsize=9)
     ax2.set_yscale("log")
     ax2.set_ylim(bottom=1e-1, top=50)  # scale figure so 2/eta lines are clearly visible without squeeze
     ax2.grid(True, alpha=0.2)
     # Annotate 2/eta thresholds
     for elr in eos_lrs:
-        ax2.annotate(f"$2/\\eta={2 / elr:.0f}$", xy=(195, 2 / elr), fontsize=7, alpha=0.6, va="bottom")
+        ax2.annotate(f"2/η={2 / elr:.0f}", xy=(195, 2 / elr), fontsize=7, alpha=0.6, va="bottom")
     # Add annotation for 2/eta lines
     plt.tight_layout()
     _savefig("eos_demonstration")
 
-    # ======================================================================
-    # FIG 2: SGD vs NGD — loss + sharpness (main comparison)
-    # ======================================================================
-    print("[Fig 2] SGD vs NGD(diag): loss + sharpness")
+        # FIG 2: SGD vs NGD — loss + sharpness (main comparison)
+        print("[Fig 2] SGD vs NGD(diag): loss + sharpness")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     iters = np.arange(steps)
     for m in ["SGD", "NGD"]:
@@ -800,10 +796,8 @@ def main():
     plt.tight_layout()
     _savefig("eos_comparison")
 
-    # ======================================================================
-    # FIG 3: Theorem verification — epsilon(t), mu_min(t), bound(t), S_eff(t)
-    # ======================================================================
-    print("[Fig 3] Theorem verification: epsilon, mu_min, bounds")
+        # FIG 3: Theorem verification — epsilon(t), mu_min(t), bound(t), S_eff(t)
+        print("[Fig 3] Theorem verification: epsilon, mu_min, bounds")
     tv = measure_theorem_quantities(lr=0.1, steps=100, N=200, dim=10, seed=42, damping=1e-3, every=5)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     ax1.plot(tv["steps"], tv["eps"], "o-", label=r"$\epsilon_{\mathrm{true}} = \|H - G\|_2$", color="tab:red")
@@ -816,15 +810,44 @@ def main():
     ax1.grid(True, alpha=0.2)
     ax1.set_yscale("log")
 
-    ax2.plot(tv["steps"], tv["seff"], "o-", label=r"$S_{\mathrm{eff}} = \lambda_{\max}(F^{-1}H)$", color="tab:blue")
-    ax2.plot(tv["steps"], tv["bound_iv2"], "s--", label=r"Thm IV.2 Bound", color="tab:red", alpha=0.7)
-    ax2.plot(tv["steps"], tv["bound_iv4"], "d--", label=r"Cor IV.4 Bound", color="tab:orange")
+    ax2.plot(
+        tv["steps"],
+        tv["seff"],
+        marker="o",
+        linestyle="-",
+        color="black",
+        linewidth=1.6,
+        markersize=4,
+        label=r"$S_{\mathrm{eff}} = \lambda_{\max}(F^{-1}H)$ (o, solid)",
+    )
+    ax2.plot(
+        tv["steps"],
+        tv["bound_iv2"],
+        marker="s",
+        linestyle="--",
+        color="dimgray",
+        linewidth=1.6,
+        markersize=4,
+        label=r"Thm IV.2 Bound (s, dashed)",
+    )
+    ax2.plot(
+        tv["steps"],
+        tv["bound_iv4"],
+        marker="d",
+        linestyle="-.",
+        color="gray",
+        linewidth=1.6,
+        markersize=4,
+        label=r"Cor IV.4 Bound (d, dash-dot)",
+    )
     ax2.set_xlabel("Iteration")
     ax2.set_ylabel("Effective Sharpness")
     ax2.set_title("(b) Bound Verification")
     ax2.legend(fontsize=8)
     ax2.grid(True, alpha=0.2)
     ax2.set_yscale("log")
+    # Ensure IV.2 values down to ~25 remain visible so violation crossings are explicit.
+    ax2.set_ylim(1e1, 1e4)
     plt.tight_layout()
     _savefig("theorem_verification")
     # Print values at last recorded step
@@ -833,10 +856,8 @@ def main():
         f"S_eff = {tv['seff'][-1]:.4f}, Thm IV.2 = {tv['bound_iv2'][-1]:.4f}, Cor IV.4 = {tv['bound_iv4'][-1]:.4f}"
     )
 
-    # ======================================================================
-    # FIG 4: Phase diagram
-    # ======================================================================
-    print("[Fig 4] Phase diagram")
+        # FIG 4: Phase diagram
+        print("[Fig 4] Phase diagram")
     lrs = np.logspace(-2, 0.3, 15)  # extend past eta=1 to show instability
     phase_m = ["SGD", "NGD"]
     heatmap = np.zeros((len(phase_m), len(lrs)))
@@ -851,14 +872,12 @@ def main():
     plt.yticks(np.arange(len(phase_m)), [mlabels[m] for m in phase_m])
     plt.xlabel(r"Learning Rate $\eta$")
     plt.ylabel("Optimizer")
-    plt.title("Stability Phase Diagram (100 iters, seed 0)")
+    plt.title("Stability Phase Diagram (100 iters, seed 42)")
     plt.tight_layout()
     _savefig("phase_diagram")
 
-    # ======================================================================
-    # FIG 5: Full Fisher NGD vs Diagonal Fisher NGD
-    # ======================================================================
-    print("[Fig 5] Full Fisher vs Diagonal Fisher NGD")
+        # FIG 5: Full Fisher NGD vs Diagonal Fisher NGD
+        print("[Fig 5] Full Fisher vs Diagonal Fisher NGD")
     ff_seeds = 5
     ff_l_all, ff_s_all, diag_l_all, diag_s_all = [], [], [], []
     sgd_l_small, sgd_s_small = [], []
@@ -912,10 +931,8 @@ def main():
     plt.tight_layout()
     _savefig("full_vs_diag_fisher")
 
-    # ======================================================================
-    # FIG 6: Eigenvalue spectrum + damping ablation table
-    # ======================================================================
-    print("[Fig 6] Eigenvalue spectrum")
+        # FIG 6: Eigenvalue spectrum + damping ablation table
+        print("[Fig 6] Eigenvalue spectrum")
     torch.manual_seed(42)
     np.random.seed(42)
     Xs = torch.randn(500, 20)
@@ -967,10 +984,8 @@ def main():
     corr = np.corrcoef(eig_top, sv_sorted)[0, 1]
     print(f"  Eigenvalue-SV Pearson r = {corr:.4f}")
 
-    # ======================================================================
-    # FIG 7: MNIST nonlinear — 10 seeds, multiple lr for SGD, accuracy
-    # ======================================================================
-    mnist_seeds = 5
+        # FIG 7: MNIST nonlinear — 10 seeds, multiple lr for SGD, accuracy
+        mnist_seeds = 5
     print(f"[Fig 7] MNIST nonlinear validation ({mnist_seeds} seeds)")
     mnist_data = {}
     mnist_lrs_sgd = [0.005, 0.01, 0.05]
@@ -1018,6 +1033,8 @@ def main():
         arr = np.abs(np.array(mnist_data[key]["sharps"]))
         mu = arr.mean(0)
         axes[1].plot(it_m, mu, label=labels_m[key], color=colors_m[key])
+    # Reference GD stability threshold for eta=0.01 (used by SP-GD and one SGD baseline).
+    axes[1].axhline(2 / 0.01, color="black", ls="--", alpha=0.6, label=r"$2/\eta$ ($\eta=0.01$)")
     axes[1].set_xlabel("Iteration")
     axes[1].set_ylabel("Sharpness (magnitude)")
     axes[1].set_title("(b) Sharpness")
@@ -1038,10 +1055,8 @@ def main():
     plt.tight_layout()
     _savefig("nonlinear_validation")
 
-    # ======================================================================
-    # FIG 8: Damping ablation
-    # ======================================================================
-    print("[Fig 8] Damping ablation")
+        # FIG 8: Damping ablation
+        print("[Fig 8] Damping ablation")
     dampings = [1e-4, 1e-3, 1e-2, 1e-1]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     damp_colors = {1e-4: "tab:blue", 1e-3: "tab:green", 1e-2: "tab:orange", 1e-1: "tab:red"}
@@ -1081,19 +1096,15 @@ def main():
     plt.tight_layout()
     _savefig("damping_ablation")
 
-    # ======================================================================
-    # Remove old figures that are no longer referenced
-    # ======================================================================
-    for old_fig in ["boxplot_final_loss.png", "wallclock_comparison.png", "eigenvalue_sv_corr.png"]:
+        # Remove old figures that are no longer referenced
+        for old_fig in ["boxplot_final_loss.png", "wallclock_comparison.png", "eigenvalue_sv_corr.png"]:
         p = os.path.join(FIGDIR, old_fig)
         if os.path.exists(p):
             os.remove(p)
             print(f"  Removed old figure: {old_fig}")
 
-    # ======================================================================
-    # STATISTICAL REPORT
-    # ======================================================================
-    print("\n" + "-" * 60)
+        # STATISTICAL REPORT
+        print("\n" + "-" * 60)
     print("STATISTICAL REPORT")
     print("-" * 60)
 
@@ -1145,8 +1156,10 @@ def main():
     print(f"  ε = ||Q||₂ = {tv['eps'][-1]:.4f}")
     print(f"  μ_min(F+γI) = {tv['mu_min'][-1]:.6f}")
     print(f"  S_eff actual = {tv['seff'][-1]:.4f}")
-    print(f"  Bound (1+ε/μ_min) = {tv['bound'][-1]:.4f}")
-    print(f"  Bound satisfied: {tv['seff'][-1] <= tv['bound'][-1] + 0.01}")
+    print(f"  Thm IV.2 bound (1+ε_true/μ_min) = {tv['bound_iv2'][-1]:.4f}")
+    print(f"  Cor IV.4 bound (1+(ε_true+δ)/μ_min) = {tv['bound_iv4'][-1]:.4f}")
+    print(f"  Thm IV.2 satisfied: {tv['seff'][-1] <= tv['bound_iv2'][-1] + 0.01}")
+    print(f"  Cor IV.4 satisfied: {tv['seff'][-1] <= tv['bound_iv4'][-1] + 0.01}")
 
     print(f"\nEigenvalue-SV Pearson r = {corr:.4f}")
 
@@ -1156,10 +1169,8 @@ def main():
         vals = damp_finals[dv]
         print(f"  γ={dv:<8}: {np.mean(vals):.4f} +/- {np.std(vals):.4f}")
 
-    # ======================================================================
-    # PHASE 2: SCALABLE NGD EXPERIMENTS
-    # ======================================================================
-    print("\n" + "-" * 60)
+        # PHASE 2: SCALABLE NGD EXPERIMENTS
+        print("\n" + "-" * 60)
     print("Phase 2: Scalable NGD experiments")
     print("-" * 60)
 
