@@ -94,8 +94,11 @@ def power_iteration_sharpness(loss, params, precond=None, max_iter=20):
         return 0.0
     vg, vp = zip(*valid)
     v = [torch.randn_like(p) for p in vp]
-    vnorm = torch.sqrt(sum(  # type: ignore
-    torch.sum(vi**2) for vi in v))
+    vnorm = torch.sqrt(
+        sum(  # type: ignore
+            torch.sum(vi**2) for vi in v
+        )
+    )
     v = [vi / vnorm for vi in v]
     ev = 0.0
     for _ in range(max_iter):
@@ -103,8 +106,11 @@ def power_iteration_sharpness(loss, params, precond=None, max_iter=20):
         Hv = torch.autograd.grad(gv, vp, retain_graph=True)  # type: ignore
         if precond is not None:
             Hv = [hvi / (precond + 1e-4) for hvi in Hv]
-        nn_ = torch.sqrt(sum(  # type: ignore
-    torch.sum(h**2) for h in Hv))
+        nn_ = torch.sqrt(
+            sum(  # type: ignore
+                torch.sum(h**2) for h in Hv
+            )
+        )
         if nn_ < 1e-10:
             break
         ev = nn_.item()
@@ -198,9 +204,11 @@ def run_dln_training(method, lr, steps=150, N=500, dim=20, seed=42, damping=1e-3
         losses.append(loss.item())
         sharps.append(s)
         if method in ("SGD", "Adam", "SGD_Cosine"):
-            if opt: opt.zero_grad()
+            if opt:
+                opt.zero_grad()
             loss.backward()
-            if opt: opt.step()
+            if opt:
+                opt.step()
             if method == "SGD_Cosine":
                 sched.step()
         elif method == "NGD":
@@ -340,9 +348,11 @@ def measure_theorem_quantities(lr=0.1, steps=150, N=200, dim=10, seed=42, dampin
             delta_vals.append(delta)
             bound_iv4_vals.append(bound_iv4)
 
-        if opt: opt.zero_grad()
+        if opt:
+            opt.zero_grad()
         loss.backward()
-        if opt: opt.step()
+        if opt:
+            opt.step()
 
     return {
         "steps": record_steps,
@@ -415,9 +425,11 @@ def run_mnist(method, lr, steps=200, n_train=2000, seed=42, damping=1e-3, sharp_
             acc = (model(teX).argmax(1) == teY).float().mean().item()
         accs.append(acc)
         if method == "SGD":
-            if opt: opt.zero_grad()
+            if opt:
+                opt.zero_grad()
             loss.backward()
-            if opt: opt.step()
+            if opt:
+                opt.step()
         else:
             gs = torch.autograd.grad(loss, params)
             gf = torch.cat([g.view(-1) for g in gs])
@@ -463,11 +475,13 @@ def run_kfac_dln(lr, steps=150, N=500, dim=20, seed=42, damping=1e-3, curv_inter
     t0g = time.time()
     for step in range(steps):
         t0 = time.time()
-        if optimizer: optimizer.zero_grad()
+        if optimizer:
+            optimizer.zero_grad()
         dummy_y = grad_maker.setup_model_call(model, X)
         grad_maker.setup_loss_call(criterion, dummy_y, Y)
         y, loss = grad_maker.forward_and_backward()
-        if optimizer: optimizer.step()
+        if optimizer:
+            optimizer.step()
         losses.append(loss.item())
         with torch.enable_grad():
             pred = model(X)
@@ -498,13 +512,15 @@ def run_true_diag_dln(lr, steps=150, N=500, dim=20, seed=42, damping=1e-3):
     criterion = nn.MSELoss()
     losses, sharps = [], []
     for step in range(steps):
-        if optimizer: optimizer.zero_grad()
+        if optimizer:
+            optimizer.zero_grad()
         dummy_y = grad_maker.setup_model_call(model, X)
         grad_maker.setup_loss_call(criterion, dummy_y, Y)
         y, loss = grad_maker.forward_and_backward()
         # Clip preconditioned gradient to prevent instability from large F^{-1}_diag entries
         torch.nn.utils.clip_grad_norm_(params, max_norm=1.0)
-        if optimizer: optimizer.step()
+        if optimizer:
+            optimizer.step()
         losses.append(loss.item())
         with torch.enable_grad():
             pred = model(X)
@@ -538,11 +554,13 @@ def run_kfac_mnist(lr=0.01, steps=200, n_train=2000, seed=42, damping=1e-3, curv
     losses, sharps, accs = [], [], []
     last_s = 0.0
     for step in range(steps):
-        if optimizer: optimizer.zero_grad()
+        if optimizer:
+            optimizer.zero_grad()
         dummy_y = grad_maker.setup_model_call(model, X)
         grad_maker.setup_loss_call(criterion, dummy_y, y)
         y_out, loss = grad_maker.forward_and_backward()
-        if optimizer: optimizer.step()
+        if optimizer:
+            optimizer.step()
         losses.append(loss.item())
         if step % sharp_every == 0:
             with torch.enable_grad():
@@ -609,16 +627,19 @@ def run_cifar_training(method, lr, epochs=5, batch_size=128, seed=42, damping=1e
         for inputs, targets in trainloader:
             t0 = time.time()
             if grad_maker is not None:
-                if optimizer: optimizer.zero_grad()
+                if optimizer:
+                    optimizer.zero_grad()
                 dummy_y = grad_maker.setup_model_call(model, inputs)
                 grad_maker.setup_loss_call(criterion, dummy_y, targets)
                 y, loss = grad_maker.forward_and_backward()
             else:
-                if optimizer: optimizer.zero_grad()
+                if optimizer:
+                    optimizer.zero_grad()
                 y = model(inputs)
                 loss = criterion(y, targets)
                 loss.backward()
-            if optimizer: optimizer.step()
+            if optimizer:
+                optimizer.step()
             losses.append(loss.item())
             iter_times.append(time.time() - t0)
             # Sharpness estimation (expensive at this scale — sample rarely)
@@ -672,9 +693,11 @@ def measure_bound_at_scale(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     for _ in range(train_steps):
         pred = model(X)
         loss = nn.MSELoss()(pred, Y)
-        if opt: opt.zero_grad()
+        if opt:
+            opt.zero_grad()
         loss.backward()
-        if opt: opt.step()
+        if opt:
+            opt.step()
     pred = model(X)
     loss = nn.MSELoss()(pred, Y)
     H_np = full_hessian(loss, params)
@@ -735,8 +758,8 @@ def main():
         print("done")
     print(f"  DLN parameters: {npar_dln}")
 
-        # FIG 1: EoS demonstration — SGD at multiple learning rates
-        print("\n[Fig 1] EoS demonstration: SGD at multiple lr")
+    # FIG 1: EoS demonstration — SGD at multiple learning rates
+    print("\n[Fig 1] EoS demonstration: SGD at multiple lr")
     eos_lrs = [0.05, 0.1, 0.2, 0.5, 1.0]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     for elr in eos_lrs:
@@ -764,8 +787,8 @@ def main():
     plt.tight_layout()
     _savefig("eos_demonstration")
 
-        # FIG 2: SGD vs NGD — loss + sharpness (main comparison)
-        print("[Fig 2] SGD vs NGD(diag): loss + sharpness")
+    # FIG 2: SGD vs NGD — loss + sharpness (main comparison)
+    print("[Fig 2] SGD vs NGD(diag): loss + sharpness")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     iters = np.arange(steps)
     for m in ["SGD", "NGD"]:
@@ -796,8 +819,8 @@ def main():
     plt.tight_layout()
     _savefig("eos_comparison")
 
-        # FIG 3: Theorem verification — epsilon(t), mu_min(t), bound(t), S_eff(t)
-        print("[Fig 3] Theorem verification: epsilon, mu_min, bounds")
+    # FIG 3: Theorem verification — epsilon(t), mu_min(t), bound(t), S_eff(t)
+    print("[Fig 3] Theorem verification: epsilon, mu_min, bounds")
     tv = measure_theorem_quantities(lr=0.1, steps=100, N=200, dim=10, seed=42, damping=1e-3, every=5)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     ax1.plot(tv["steps"], tv["eps"], "o-", label=r"$\epsilon_{\mathrm{true}} = \|H - G\|_2$", color="tab:red")
@@ -856,8 +879,8 @@ def main():
         f"S_eff = {tv['seff'][-1]:.4f}, Thm IV.2 = {tv['bound_iv2'][-1]:.4f}, Cor IV.4 = {tv['bound_iv4'][-1]:.4f}"
     )
 
-        # FIG 4: Phase diagram
-        print("[Fig 4] Phase diagram")
+    # FIG 4: Phase diagram
+    print("[Fig 4] Phase diagram")
     lrs = np.logspace(-2, 0.3, 15)  # extend past eta=1 to show instability
     phase_m = ["SGD", "NGD"]
     heatmap = np.zeros((len(phase_m), len(lrs)))
@@ -876,8 +899,8 @@ def main():
     plt.tight_layout()
     _savefig("phase_diagram")
 
-        # FIG 5: Full Fisher NGD vs Diagonal Fisher NGD
-        print("[Fig 5] Full Fisher vs Diagonal Fisher NGD")
+    # FIG 5: Full Fisher NGD vs Diagonal Fisher NGD
+    print("[Fig 5] Full Fisher vs Diagonal Fisher NGD")
     ff_seeds = 5
     ff_l_all, ff_s_all, diag_l_all, diag_s_all = [], [], [], []
     sgd_l_small, sgd_s_small = [], []
@@ -931,8 +954,8 @@ def main():
     plt.tight_layout()
     _savefig("full_vs_diag_fisher")
 
-        # FIG 6: Eigenvalue spectrum + damping ablation table
-        print("[Fig 6] Eigenvalue spectrum")
+    # FIG 6: Eigenvalue spectrum + damping ablation table
+    print("[Fig 6] Eigenvalue spectrum")
     torch.manual_seed(42)
     np.random.seed(42)
     Xs = torch.randn(500, 20)
@@ -984,8 +1007,8 @@ def main():
     corr = np.corrcoef(eig_top, sv_sorted)[0, 1]
     print(f"  Eigenvalue-SV Pearson r = {corr:.4f}")
 
-        # FIG 7: MNIST nonlinear — 10 seeds, multiple lr for SGD, accuracy
-        mnist_seeds = 5
+    # FIG 7: MNIST nonlinear — 10 seeds, multiple lr for SGD, accuracy
+    mnist_seeds = 5
     print(f"[Fig 7] MNIST nonlinear validation ({mnist_seeds} seeds)")
     mnist_data = {}
     mnist_lrs_sgd = [0.005, 0.01, 0.05]
@@ -1055,8 +1078,8 @@ def main():
     plt.tight_layout()
     _savefig("nonlinear_validation")
 
-        # FIG 8: Damping ablation
-        print("[Fig 8] Damping ablation")
+    # FIG 8: Damping ablation
+    print("[Fig 8] Damping ablation")
     dampings = [1e-4, 1e-3, 1e-2, 1e-1]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     damp_colors = {1e-4: "tab:blue", 1e-3: "tab:green", 1e-2: "tab:orange", 1e-1: "tab:red"}
@@ -1096,15 +1119,15 @@ def main():
     plt.tight_layout()
     _savefig("damping_ablation")
 
-        # Remove old figures that are no longer referenced
-        for old_fig in ["boxplot_final_loss.png", "wallclock_comparison.png", "eigenvalue_sv_corr.png"]:
+    # Remove old figures that are no longer referenced
+    for old_fig in ["boxplot_final_loss.png", "wallclock_comparison.png", "eigenvalue_sv_corr.png"]:
         p = os.path.join(FIGDIR, old_fig)
         if os.path.exists(p):
             os.remove(p)
             print(f"  Removed old figure: {old_fig}")
 
-        # STATISTICAL REPORT
-        print("\n" + "-" * 60)
+    # STATISTICAL REPORT
+    print("\n" + "-" * 60)
     print("STATISTICAL REPORT")
     print("-" * 60)
 
