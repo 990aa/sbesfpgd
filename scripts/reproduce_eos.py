@@ -678,7 +678,7 @@ def run_cifar_training(method, lr, epochs=5, batch_size=128, seed=42, damping=1e
 
 
 def measure_bound_at_scale(width, depth=3, N=200, seed=42, damping=1e-3, train_steps=50):
-    """Measure Theorem IV.2 quantities on a DLN of given width."""
+    """Measure Theorem IV.2 and Corollary IV.4 quantities on a DLN of given width."""
     dim = width
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -701,23 +701,34 @@ def measure_bound_at_scale(width, depth=3, N=200, seed=42, damping=1e-3, train_s
     pred = model(X)
     loss = nn.MSELoss()(pred, Y)
     H_np = full_hessian(loss, params)
+    G_np = full_gauss_newton(model, X, params)
     F_np = full_fisher(model, X, Y, params, damping=0.0)
     F_reg = F_np + damping * np.eye(npar)
-    Q = H_np - F_np
-    eps = np.linalg.norm(Q, ord=2)
+    Q_true = H_np - G_np
+    eps_true = np.linalg.norm(Q_true, ord=2)
+    delta = np.linalg.norm(G_np - F_np, ord=2)
     mu_min = np.min(np.linalg.eigvalsh(F_reg))
     F_inv_H = np.linalg.solve(F_reg, H_np)
     seff = np.max(np.abs(np.linalg.eigvals(F_inv_H))).real
-    bound = 1.0 + eps / max(mu_min, 1e-12)
+    ratio_iv2 = eps_true / max(mu_min, 1e-12)
+    ratio_iv4 = (eps_true + delta) / max(mu_min, 1e-12)
+    bound_iv2 = 1.0 + ratio_iv2
+    bound_iv4 = 1.0 + ratio_iv4
     return {
         "n_params": npar,
         "width": width,
-        "eps": eps,
+        "eps_true": eps_true,
+        "delta": delta,
         "mu_min": mu_min,
         "seff": seff,
-        "bound": bound,
+        "ratio_iv2": ratio_iv2,
+        "ratio_iv4": ratio_iv4,
+        "bound_iv2": bound_iv2,
+        "bound_iv4": bound_iv4,
+        # Backward-compatibility aliases: use Theorem IV.2 values.
+        "ratio": ratio_iv2,
+        "bound": bound_iv2,
         "loss": loss.item(),
-        "ratio": eps / max(mu_min, 1e-12),
     }
 
 
@@ -1341,22 +1352,59 @@ def main():
         print(f"  width={w} ...", end=" ", flush=True)
         r = measure_bound_at_scale(w, depth=3, N=200, seed=42, damping=1e-3, train_steps=50)
         scale_results.append(r)
-        print(f"npar={r['n_params']}, ε/μ_min={r['ratio']:.1f}, S_eff={r['seff']:.1f}")
+        print(
+            f"npar={r['n_params']}, "
+            f"ε_true/μ_min={r['ratio_iv2']:.1f}, "
+            f"(ε_true+δ)/μ_min={r['ratio_iv4']:.1f}, "
+            f"S_eff={r['seff']:.1f}"
+        )
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.0))
     nparams = [r["n_params"] for r in scale_results]
-    ratios = [r["ratio"] for r in scale_results]
+    ratios_iv2 = [r["ratio_iv2"] for r in scale_results]
+    ratios_iv4 = [r["ratio_iv4"] for r in scale_results]
     seffs = [r["seff"] for r in scale_results]
-    bounds = [r["bound"] for r in scale_results]
-    ax1.loglog(nparams, ratios, "o-", color="tab:red", label=r"$\epsilon / \mu_{\min}(F)$", markersize=8)
+    bounds_iv2 = [r["bound_iv2"] for r in scale_results]
+    bounds_iv4 = [r["bound_iv4"] for r in scale_results]
+    ax1.loglog(
+        nparams,
+        ratios_iv2,
+        "o-",
+        color="tab:red",
+        label=r"$\epsilon_{\mathrm{true}} / \mu_{\min}(F)$",
+        markersize=8,
+    )
+    ax1.loglog(
+        nparams,
+        ratios_iv4,
+        "s--",
+        color="tab:orange",
+        label=r"$(\epsilon_{\mathrm{true}} + \delta) / \mu_{\min}(F)$",
+        markersize=7,
+    )
     ax1.set_xlabel("Number of Parameters")
-    ax1.set_ylabel(r"$\epsilon / \mu_{\min}(F)$")
-    ax1.set_title("(a) Bound Ratio vs. Model Size")
+    ax1.set_ylabel(r"Bound Ratio")
+    ax1.set_title("(a) IV.2 and IV.4 Ratios vs. Model Size")
     ax1.legend()
     ax1.grid(True, which="both", alpha=0.2)
 
     ax2.loglog(nparams, seffs, "o-", color="tab:blue", label=r"$S_{\mathrm{eff}}$ (actual)", markersize=8)
-    ax2.loglog(nparams, bounds, "s--", color="tab:orange", label=r"Bound $1 + \epsilon/\mu_{\min}$", markersize=8)
+    ax2.loglog(
+        nparams,
+        bounds_iv2,
+        "s--",
+        color="tab:red",
+        label=r"Thm IV.2 Bound $1 + \epsilon_{\mathrm{true}}/\mu_{\min}$",
+        markersize=7,
+    )
+    ax2.loglog(
+        nparams,
+        bounds_iv4,
+        "d-.",
+        color="tab:green",
+        label=r"Cor IV.4 Bound $1 + (\epsilon_{\mathrm{true}}+\delta)/\mu_{\min}$",
+        markersize=7,
+    )
     ax2.set_xlabel("Number of Parameters")
     ax2.set_ylabel("Effective Sharpness")
     ax2.set_title("(b) Actual vs. Bound")
@@ -1420,13 +1468,16 @@ def main():
     print(f"  Overhead: {kfac_times_c.mean() / sgd_times_c.mean():.2f}x")
 
     print("\nScaling Analysis (DLN, depth=3):")
-    print(f"{'Width':>6} {'Params':>8} {'ε/μ_min':>12} {'S_eff':>10} {'Bound':>10} {'Gap':>6}")
-    print("-" * 58)
+    print(
+        f"{'Width':>6} {'Params':>8} {'ε_true/μ_min':>14} {'(ε_true+δ)/μ_min':>17} "
+        f"{'S_eff':>10} {'IV.2 Bound':>11} {'IV.4 Bound':>11}"
+    )
+    print("-" * 92)
     for r in scale_results:
-        gap = r["bound"] / max(r["seff"], 1e-12)
         print(
-            f"{r['width']:>6} {r['n_params']:>8} {r['ratio']:>12.1f} "
-            f"{r['seff']:>10.1f} {r['bound']:>10.1f} {gap:>6.1f}x"
+            f"{r['width']:>6} {r['n_params']:>8} {r['ratio_iv2']:>14.1f} "
+            f"{r['ratio_iv4']:>17.1f} {r['seff']:>10.1f} "
+            f"{r['bound_iv2']:>11.1f} {r['bound_iv4']:>11.1f}"
         )
 
     # Save machine-readable results
@@ -1454,8 +1505,15 @@ def main():
             {
                 "width": r["width"],
                 "n_params": r["n_params"],
-                "ratio": r["ratio"],
+                "eps_true": r["eps_true"],
+                "delta": r["delta"],
+                "ratio_iv2": r["ratio_iv2"],
+                "ratio_iv4": r["ratio_iv4"],
                 "seff": r["seff"],
+                "bound_iv2": r["bound_iv2"],
+                "bound_iv4": r["bound_iv4"],
+                # Backward-compatibility aliases.
+                "ratio": r["ratio"],
                 "bound": r["bound"],
             }
             for r in scale_results
