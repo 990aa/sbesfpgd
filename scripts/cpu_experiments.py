@@ -565,21 +565,27 @@ def main():
     b_iv3 = [alignment[l]["mean"]["bound_iv3"] for l in labels]
     b_iv5 = [alignment[l]["mean"]["lower_bound_iv5"] for l in labels]
 
-    fig, ax = plt.subplots(figsize=(7.16, 3.0))
+    fig, ax = plt.subplots(figsize=(8.4, 3.2))
     x = np.arange(len(labels))
     w_ = 0.2
-    ax.bar(x - 1.5 * w_, seffs, w_, label=r"$S_{\mathrm{eff}}$ (actual)", color="tab:blue")
+    ax.bar(x - 1.5 * w_, seffs, w_, label="S_eff (actual)", color="tab:blue")
     ax.bar(x - 0.5 * w_, b_iv3, w_, label="Thm IV.3 (alignment)", color="tab:green")
     ax.bar(x + 0.5 * w_, b_iv2, w_, label="Thm IV.2 (worst-case)", color="tab:orange")
-    ax.bar(x + 1.5 * w_, b_iv5, w_, label="Prop IV.5 (lower)", color="tab:purple")
+    ax.bar(x + 1.5 * w_, b_iv5, w_, label="Prop IV.6 (lower)", color="tab:purple")
     ax.set_xticks(x)
     ax.set_xticklabels([l.split("(")[0].strip() for l in labels], fontsize=11)
     ax.set_ylabel("Value")
     ax.set_title("Theorem IV.3 Alignment-Aware Bound Validation")
-    ax.legend(fontsize=10)
+    ax.legend(
+        fontsize=9,
+        loc="center left",
+        bbox_to_anchor=(1.01, 0.5),
+        ncol=1,
+        frameon=False,
+    )
     ax.grid(True, axis="y", alpha=0.2)
     ax.set_yscale("log")
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.82, 1])
     _savefig("alignment_validation")
     print("  Saved alignment_validation.png/.pdf")
 
@@ -590,7 +596,7 @@ def main():
     means = [d["mean_loss"] for d in gammas_sorted]
     stds = [d["std_loss"] for d in gammas_sorted]
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.0))
+    fig, ax = plt.subplots(figsize=(8.2, 3.2))
     ax.errorbar(
         gs,
         means,
@@ -620,9 +626,9 @@ def main():
     ax.set_xlabel(r"Damping $\gamma$")
     ax.set_ylabel("Final MSE")
     ax.set_title("Damping Rule-of-Thumb Validation (DLN, 820 params)")
-    ax.legend(fontsize=9, loc="center left", bbox_to_anchor=(1, 0.5))
+    ax.legend(fontsize=9, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
     ax.grid(True, which="both", alpha=0.2)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.80, 1])
     _savefig("damping_validation")
     print("  Saved damping_validation.png/.pdf")
 
