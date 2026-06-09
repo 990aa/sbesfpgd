@@ -4,7 +4,7 @@ verify_theorem_iv2.py
 Self-contained numerical verification of Theorem IV.2 and Corollary IV.4 from:
 
   "A Spectral Bound on Effective Sharpness for Fisher-Preconditioned
-   Gradient Descent" (IEEE submission)
+   Gradient Descent" 
 
 The script trains a 110-parameter deep linear network (DLN) with SGD and, at
 every 5th iteration, computes the following quantities *exactly* (no
