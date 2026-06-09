@@ -7,7 +7,7 @@ Self-contained numerical verification of Theorem IV.2 and Corollary IV.4 from:
    Gradient Descent" 
 
 The script trains a 110-parameter deep linear network (DLN) with SGD and, at
-every 5th iteration, computes the following quantities *exactly* (no
+every 5th iteration, computes the following quantities exactly (no
 approximations):
 
   H       -- full Hessian  (d x d)
@@ -40,9 +40,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-# ---------------------------------------------------------------------------
 # Hyper-parameters (must match paper Section VII.D exactly)
-# ---------------------------------------------------------------------------
 DEPTH = 2
 WIDTH = 10
 INPUT_DIM = 10
@@ -55,9 +53,7 @@ GAMMA = 1e-3     # damping  (γ in paper)
 EVERY = 5        # measure every EVERY-th step
 HIGHLIGHT = {0, 50, 100}   # iterations emphasised in paper Table
 
-# ---------------------------------------------------------------------------
 # Model
-# ---------------------------------------------------------------------------
 class DeepLinearNet(nn.Module):
     """Depth-D linear network with no bias (matches reproduce_eos.py)."""
     def __init__(self, depth=3, width=20, input_dim=20, output_dim=1):
@@ -72,9 +68,7 @@ class DeepLinearNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-# ---------------------------------------------------------------------------
 # Exact Hessian
-# ---------------------------------------------------------------------------
 def full_hessian(loss, params):
     """Return the full Hessian matrix as a numpy array."""
     grads = torch.autograd.grad(loss, params, create_graph=True)
@@ -86,9 +80,7 @@ def full_hessian(loss, params):
         H[i] = torch.cat([r.detach().view(-1) for r in row])
     return H.numpy()
 
-# ---------------------------------------------------------------------------
 # Exact Gauss-Newton
-# ---------------------------------------------------------------------------
 def full_gauss_newton(model, X, params):
     """Compute exact full Gauss-Newton matrix for MSE loss."""
     d = sum(p.numel() for p in params)
@@ -102,9 +94,7 @@ def full_gauss_newton(model, X, params):
     G *= 2.0 / N_local
     return G
 
-# ---------------------------------------------------------------------------
 # Exact Fisher
-# ---------------------------------------------------------------------------
 def full_fisher(model, X, Y, params, damping=0.0):
     """Compute full Fisher matrix for MSE loss."""
     N_local = X.shape[0]
@@ -123,9 +113,7 @@ def full_fisher(model, X, Y, params, damping=0.0):
         F += damping * np.eye(d)
     return F
 
-# ---------------------------------------------------------------------------
 # Main verification loop
-# ---------------------------------------------------------------------------
 def verify():
     torch.manual_seed(SEED)
     np.random.seed(SEED)
