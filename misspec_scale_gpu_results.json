@@ -1,0 +1,94 @@
+{
+  "mnist": [
+    {
+      "task": "MNIST MLP",
+      "params": 50890,
+      "checkpoint": "epoch 1",
+      "loss": 2.347386360168457,
+      "accuracy": 10.900000482797623,
+      "eps_est": 5.035072326660156,
+      "delta_est": 9.50277328491211,
+      "F_norm_est": 14.685344696044922,
+      "delta_relative": 0.6470922870112412,
+      "seff_est": 4362.9814453125,
+      "time_s": 5.3977673053741455
+    },
+    {
+      "task": "MNIST MLP",
+      "params": 50890,
+      "checkpoint": "epoch 5",
+      "loss": 2.2439992427825928,
+      "accuracy": 21.250000596046448,
+      "eps_est": 5.893859386444092,
+      "delta_est": 9.255136489868164,
+      "F_norm_est": 14.306733131408691,
+      "delta_relative": 0.6469077465036123,
+      "seff_est": 4776.310546875,
+      "time_s": 5.0732221603393555
+    },
+    {
+      "task": "MNIST MLP",
+      "params": 50890,
+      "checkpoint": "epoch 10",
+      "loss": 2.1272144317626953,
+      "accuracy": 35.95000207424164,
+      "eps_est": 6.121153831481934,
+      "delta_est": 8.682912826538086,
+      "F_norm_est": 13.687143325805664,
+      "delta_relative": 0.6343845914265668,
+      "seff_est": 4985.080078125,
+      "time_s": 5.3595335483551025
+    },
+    {
+      "task": "MNIST MLP",
+      "params": 50890,
+      "checkpoint": "epoch 25",
+      "loss": 1.8402312994003296,
+      "accuracy": 60.200005769729614,
+      "eps_est": 6.419698238372803,
+      "delta_est": 6.602226257324219,
+      "F_norm_est": 11.647107124328613,
+      "delta_relative": 0.5668554592009729,
+      "seff_est": 5375.44921875,
+      "time_s": 5.05351710319519
+    }
+  ],
+  "cifar": [
+    {
+      "task": "CIFAR ResNet-18",
+      "params": 11173962,
+      "checkpoint": "epoch 1",
+      "accuracy": 40.97,
+      "eps_est": 18.128360748291016,
+      "delta_est": 33.71515655517578,
+      "F_norm_est": 46.63231658935547,
+      "delta_relative": 0.7229998211770542,
+      "seff_est": 8146.6416015625,
+      "time_s": 82.42747974395752
+    },
+    {
+      "task": "CIFAR ResNet-18",
+      "params": 11173962,
+      "checkpoint": "epoch 5",
+      "accuracy": 68.91000000000001,
+      "eps_est": 36.60717010498047,
+      "delta_est": 53.97400665283203,
+      "F_norm_est": 77.08576202392578,
+      "delta_relative": 0.7001812687027683,
+      "seff_est": 2776.7587890625,
+      "time_s": 82.84959530830383
+    },
+    {
+      "task": "CIFAR ResNet-18",
+      "params": 11173962,
+      "checkpoint": "epoch 25",
+      "accuracy": 85.04,
+      "eps_est": 30.212875366210938,
+      "delta_est": 129.0906982421875,
+      "F_norm_est": 171.33580017089844,
+      "delta_relative": 0.7534368072138241,
+      "seff_est": 24285.78515625,
+      "time_s": 82.4959647655487
+    }
+  ]
+}
