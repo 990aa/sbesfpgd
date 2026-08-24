@@ -1,57 +1,64 @@
-# Verification Code — Theorem IV.2 & Experimental Results
+# Numerical Verification — Theorem IV.2 and Corollary IV.4
 
-Minimal, self-contained numerical verification of **Theorem IV.2** (and
-Corollary IV.4) from:
+Self-contained exact numerical verification of spectral bounds on effective sharpness for Fisher-preconditioned optimization.
 
-> **"A Spectral Bound on Effective Sharpness for Fisher-Preconditioned Gradient Descent"**  
+## Overview
 
-## What this verifies
+This module provides a standalone numerical verification of Theorem IV.2 and Corollary IV.4 from:
 
-Theorem IV.2 states that the effective sharpness of a Fisher-preconditioned
-gradient step satisfies
+> **"A Spectral Bound on Effective Sharpness for Fisher-Preconditioned Gradient Descent"**
 
-$$S_{\text{eff}} \;\leq\; 1 + \frac{\varepsilon}{\mu_{\min}(F + \gamma I)}$$
+### Theoretical Statement
 
-The script `verify_theorem_iv2.py` trains a **110-parameter deep linear
-network** (DLN, depth 2, width 10) with SGD and measures all quantities
-*exactly* (no approximation) at every 5th iteration across 100 training steps.
+Theorem IV.2 establishes that under Fisher preconditioning $(F + \gamma I)^{-1}$ with residual non-Gauss-Newton curvature $\varepsilon = \|H - G\|_2$:
 
-The bound `S_eff ≤ bound` must be satisfied at **every** measured iteration.
-The script exits with code 1 and prints a violation message if it is not.
+$$S_{\text{eff}} \le 1 + \frac{\varepsilon}{\mu_{\min}(F + \gamma I)}$$
 
-Note: `S_eff` can exceed 1 because the preconditioner is the damped Fisher
-$(F + \gamma I)^{-1}$ rather than the exact inverse $F^{-1}$.  The bound
-accounts for this; see the paper for details.
+Under distribution shift or model misspecification where $G \ne F$, Corollary IV.4 provides the general bound:
+
+$$S_{\text{eff}} \le 1 + \frac{\varepsilon + \delta}{\mu_{\min}(F + \gamma I)}$$
+
+where $\delta = \|G - F\|_2$ and $\mu_{\min}(F + \gamma I) = \lambda_{\min}(F) + \gamma$.
+
+## Verification Procedure
+
+The script `verify_theorem_iv2.py` trains a 110-parameter deep linear network (DLN, depth 2, width 10) on a synthetic regression dataset ($N = 200$) with standard gradient descent and computes exact curvature quantities at every 5th iteration:
+
+- **$H$:** Full loss Hessian ($110 \times 110$) via exact autograd Hessian assembly.
+- **$G$:** Generalized Gauss-Newton matrix ($110 \times 110$).
+- **$F$:** Empirical Fisher information matrix ($110 \times 110$) computed via exact per-sample outer products.
+- **$\varepsilon, \delta$:** Operator 2-norms $\|H - G\|_2$ and $\|G - F\|_2$ computed via exact SVD / eigendecomposition.
+- **$S_{\text{eff}}$:** Exact leading eigenvalue $\lambda_{\max}\left((F + \gamma I)^{-1} H\right)$.
+
+The assertion $S_{\text{eff}} \le \text{Bound}$ is evaluated at every checkpoint. The script exits with status code 0 upon successful validation across all steps.
 
 ## Requirements
 
-- Python 3.12+
-- PyTorch ≥ 2.0 (CPU-only is fine)
-- NumPy ≥ 1.24
+- Python $\ge$ 3.12
+- PyTorch $\ge$ 2.0 (CPU execution is fully supported)
+- NumPy $\ge$ 1.24
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
-## Running
+## Running the Verification
 
-```
+```bash
 python verify_theorem_iv2.py
 ```
 
-Runtime: approximately 60–90 s on a modern CPU (the bottleneck is the
-O(d²·N) exact Fisher computation at each checkpoint; d = 110, N = 200).
+Expected runtime: approximately 60–90 seconds on a standard multi-core CPU.
 
-## Repository Contents
+## Dataset Utility
 
-This contains the verification code and the experimental results
-used to produce the paper figures and tables. It also includes a small helper script to download the datasets used in the experiments (MNIST and CIFAR-10).
+To download the MNIST and CIFAR-10 datasets used in broader benchmark evaluations:
 
+```bash
+python download_datasets.py
+```
 
-## Notes
+## Reproducibility Notes
 
-- All hyper-parameters match the paper exactly: see the constants block near
-  the top of `verify_theorem_iv2.py`.
-- The script uses `torch.manual_seed(42)` and `numpy.random.seed(42)` to
-  ensure reproducibility.  Minor floating-point differences across PyTorch
-  versions (≤ 1 %) are expected and do not affect the pass/fail outcome.
+- All hyperparameters strictly match the experimental configuration in the paper.
+- Random seeds are fixed (`torch.manual_seed(42)` and `numpy.random.seed(42)`) to ensure deterministic reproduction across platforms.
