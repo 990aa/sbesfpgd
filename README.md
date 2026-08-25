@@ -184,12 +184,14 @@ The Tikhonov regularization factor $\gamma$ plays a pivotal role in bounding eff
 If you utilize these theoretical bounds or experimental implementations, please reference:
 
 ```bibtex
-@article{ahad2026spectral,
-  title={A Spectral Bound on Effective Sharpness for Fisher-Preconditioned Gradient Descent},
-  author={Abdul Ahad and Napa Lakshmi},
-  journal={Transactions on Machine Learning Research},
-  issn={2835-8856},
-  year={2026},
-  url={https://openreview.net/forum?id=EabuvggEbb}
+@article{
+ahad2026a,
+title={A Spectral Bound on Effective Sharpness for Fisher- Preconditioned Gradient Descent},
+author={Abdul Ahad and Napa Lakshmi},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2026},
+url={https://openreview.net/forum?id=EabuvggEbb},
+note={}
 }
 ```
